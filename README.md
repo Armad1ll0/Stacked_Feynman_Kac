@@ -4,7 +4,7 @@ The following repository contains the code for reproducing the results for the p
 
 # Instructions for repeating the experiments
 
-If testing this repo, we suggest running everythign with MNIST first with the instructions below as generating all the results may take a while, thus the instructions given are with fewer samples. The full analysis can be done by altering the commands given below. 
+If testing this repo, we suggest running everything with MNIST first with the instructions below as generating all the results may take a while, thus the instructions given are with fewer samples. The full analysis can be done by altering the commands given below. 
 
 ## Installation 
 
