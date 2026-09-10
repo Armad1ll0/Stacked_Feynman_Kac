@@ -4,6 +4,8 @@ The following repository contains the code for reproducing the results for the p
 
 # Instructions for repeating the experiments
 
+If testing this repo, we suggest running everythign with MNIST first with the instructions below as generating all the results may take a while, thus the instructions given are with fewer samples. The full analysis can be done by altering the commands given below. 
+
 ## Installation 
 
 ```bash
@@ -13,7 +15,6 @@ pip install -r requirements.txt
 ## Image Reconstruction  
 
 ```bash
-python -m experiments.generate_samples --device cuda
 python -m experiments.generate_samples --device cuda --only mnist
 ```
 
@@ -48,7 +49,7 @@ python -m experiments.class_conditional_experiments.train_classifiers --which bo
 ```
 
 ```bash
-python -m experiments.class_conditional_experiments.run_class_experiment
+python -m experiments.class_conditional_experiments.run_class_experiment --samples-per-class 10 --samples-per-run 10 --num-particles 10 --num-steps 100
 ```
 
 ### Analysis 

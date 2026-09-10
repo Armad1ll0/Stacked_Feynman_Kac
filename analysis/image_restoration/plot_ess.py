@@ -12,7 +12,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-
+SMC_METHODS = ["tds", "tds_hmc_refined"]
 KNOWN_DATASETS = ["flowers", "celeba", "mnist", "butterflies"]
 KNOWN_METHODS = ["tds", "tds_hmc_refined"]
 
@@ -373,14 +373,6 @@ def main():
     set_publication_style(args.usetex)
 
     methods = args.methods or SMC_METHODS
-    bad = [m for m in methods if m in NON_SMC_METHODS]
-    if bad:
-        print(f"  ! {', '.join(bad)} are not particle methods and have no "
-              f"ESS; dropping them.", file=sys.stderr)
-        methods = [m for m in methods if m not in NON_SMC_METHODS]
-    if not methods:
-        raise SystemExit("No SMC methods left to plot.")
-
     n_spec = parse_n_particles_spec(args.n_particles)
     runs = find_runs(args.results_dir)
 

@@ -20,6 +20,7 @@ from sampler.tsmc import run_tds_then_hmc_denoised
 from tasks.inpainting import InpaintingTask
 from tasks.super_resolution import SuperResTask
 from tasks.deblurring import DeblurringTask
+from experiments.noise import make_observation, apply_forward
 
 
 WALLCLOCK_DATASETS = ["mnist", "flowers"]
@@ -102,23 +103,24 @@ def ssim(x, y, window_size=11, sigma=1.5, data_range=2.0):
             / ((mu_x2 + mu_y2 + C1) * (s_x2 + s_y2 + C2))).mean().item()
 
 
-def observation_consistency(task, x_recon, observation, metadata):
-    x = x_recon.unsqueeze(0) if x_recon.dim() == 3 else x_recon
-    if isinstance(task, InpaintingTask):
-        mask = metadata["mask"]
-        if mask.dim() == 3:
-            mask = mask.unsqueeze(0)
-        y = observation.unsqueeze(0) if observation.dim() == 3 else observation
-        diff = mask * (x - y)
-    elif isinstance(task, SuperResTask):
-        y_lr_up = metadata["y_lr_up"].unsqueeze(0)
-        diff = task._degrade_and_upsample(x) - y_lr_up
-    elif isinstance(task, DeblurringTask):
-        y = observation.unsqueeze(0) if observation.dim() == 3 else observation
-        diff = task._blur(x) - y
-    else:
-        return float("nan")
-    return diff.pow(2).mean().sqrt().item()
+def observation_consistency(task, x_recon, x_clean, metadata) -> float:
+    """RMSE(A(x_recon), A(x_clean)). Measurement-space fidelity with a 0
+    floor, defined identically for every method and independent of which
+    noise realization the method conditioned on."""
+    with torch.no_grad():
+        Ax  = apply_forward(task, x_recon.to(x_clean.device), metadata)
+        Axc = apply_forward(task, x_clean, metadata)
+    # print('Herrreee', Ax.shape, Axc.shape)
+    return (Ax - Axc).pow(2).mean().sqrt().item()
+
+
+def observation_residual(task, x_recon, y, metadata) -> float:
+    """RMSE(A(x_recon), y) against the actual noisy measurement.
+    Floor ~ sigma_y."""
+    y = y.unsqueeze(0) if y.dim() == 3 else y
+    with torch.no_grad():
+        Ax = apply_forward(task, x_recon.to(y.device), metadata)
+    return (Ax - y).pow(2).mean().sqrt().item()
 
 
 def diversity_masked(particles, mask):
@@ -265,7 +267,7 @@ def run_one(
             "ablation_param":  ablation_param,
             "psnr":            _fmt(psnr(x_recon, x_clean), 4),
             "ssim":            _fmt(ssim(x_recon, x_clean), 4),
-            "obs_consistency": _fmt(observation_consistency(task, x_recon, observation, metadata), 6),
+            "obs_consistency": _fmt(observation_consistency(task, x_recon, x_clean, metadata), 6),
             "runtime_s":       round(runtime_s, 3),
             "ess_mean":        round(sum(result.ess_trace) / len(result.ess_trace), 3),
             "ess_min":         round(min(result.ess_trace), 3),
