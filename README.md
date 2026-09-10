@@ -48,8 +48,7 @@ python -m experiments.class_conditional_experiments.train_classifiers --which bo
 ```
 
 ```bash
-python -m experiments.class_conditional_experiments.sample_mnist --method tds     --samples-per-class 5 --out-dir samples/tds
-python -m experiments.class_conditional_experiments.sample_mnist --method tds_hmc --samples-per-class 5 --out-dir samples/tds_hmc
+python -m experiments.class_conditional_experiments.run_class_experiment
 ```
 
 ### Analysis 
