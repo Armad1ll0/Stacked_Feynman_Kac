@@ -22,9 +22,7 @@ CLASS_FILE_RE = re.compile(r"class_(?P<label>\d+)\.pt$")
 
 METHODS = ["tds", "tds_hmc"]
 METHOD_LABELS = {"tds": "TDS", "tds_hmc": "rSFK-uHMC"}
-# muted, print-safe, colorblind-friendlier than the default blue/orange
 METHOD_COLORS = {"tds": "#4C72B0", "tds_hmc": "#DD8452"}
-# distinct markers so the lines survive greyscale printing
 METHOD_MARKERS = {"tds": "o", "tds_hmc": "s"}
 
 DEFAULT_SWEEP_METRICS = ["fid_mnist", "kid_mnist_mean", "accuracy", "precision", "recall"]
@@ -37,13 +35,10 @@ METRIC_LABELS = {
     "precision": "precision",
     "recall": "recall",
 }
-# metrics where lower is better -> annotate axis direction subtly
 LOWER_IS_BETTER = {"fid_mnist", "kid_mnist_mean"}
 
 
 def set_paper_style():
-    """Publication-style matplotlib defaults: serif fonts, thin spines,
-    vector-friendly font embedding, minimal chrome."""
     plt.rcParams.update({
         "font.family": "serif",
         "font.serif": ["Times New Roman", "Nimbus Roman", "DejaVu Serif"],
@@ -67,7 +62,6 @@ def set_paper_style():
 
 
 def parse_guidance_strength(folder_name: str) -> float:
-    """'5' -> 5.0, '0.1' -> 0.1, '0p1' -> 0.1, '2p5' -> 2.5."""
     try:
         return float(folder_name)
     except ValueError:
@@ -184,13 +178,6 @@ def write_summary_latex(aggregate_df: pd.DataFrame, out_path: Path,
 def plot_metric_lines(per_class_df: pd.DataFrame, aggregate_df: pd.DataFrame,
                       metric: str, out_path_base: Path, methods=METHODS,
                       log_scale=False, share_y=True):
-    """Small-multiple line plot: metric vs. guidance strength g.
-
-    Layout: one small panel per digit class arranged in a grid (<=5 columns),
-    plus a final full-width 'Overall' panel (aggregate metric). Each panel plots
-    metric-vs-g as a line per method. Makes the sweep *trend* the visual primary
-    and is compact enough for a single column.
-    """
     if metric not in per_class_df.columns:
         print(f"warning: metric '{metric}' not in per-class data, skipping line panel")
         return
@@ -204,7 +191,7 @@ def plot_metric_lines(per_class_df: pd.DataFrame, aggregate_df: pd.DataFrame,
 
     ncol = 5
     nrow_classes = int(np.ceil(len(classes) / ncol))
-    nrow = nrow_classes + 1  # last row hosts the full-width Overall panel
+    nrow = nrow_classes + 1  
 
     fig = plt.figure(figsize=(7.0, 1.55 * nrow + 0.6), constrained_layout=True)
     gs = gridspec.GridSpec(
@@ -212,7 +199,6 @@ def plot_metric_lines(per_class_df: pd.DataFrame, aggregate_df: pd.DataFrame,
         height_ratios=[1.0] * nrow_classes + [1.25],
     )
 
-    # shared y-range from per-class data, robust to outliers
     vals_all = per_class_df[metric].replace([np.inf, -np.inf], np.nan).dropna()
     if share_y and len(vals_all):
         lo = float(np.nanpercentile(vals_all, 1))
@@ -252,7 +238,6 @@ def plot_metric_lines(per_class_df: pd.DataFrame, aggregate_df: pd.DataFrame,
         if r != nrow_classes - 1:
             ax.set_xticklabels([])
 
-    # Overall panel spanning the last row
     ax_overall = fig.add_subplot(gs[nrow_classes, :])
     for method in avail_methods:
         sub = aggregate_df[aggregate_df["method"] == method].sort_values("guidance_strength")
@@ -286,12 +271,6 @@ def plot_metric_lines(per_class_df: pd.DataFrame, aggregate_df: pd.DataFrame,
 
 
 def _macro_aggregate(per_class_df, metric, strength, method, exclude=()):
-    """Unweighted mean of the per-class `metric` for one (g, method) cell.
- 
-    Returns (value, n_classes). n_classes is returned so the caller can warn
-    when cells average over different numbers of classes -- which happens if
-    some per-class results are missing and makes the bars incomparable.
-    """
     sub = per_class_df[
         (per_class_df["guidance_strength"] == strength)
         & (per_class_df["method"] == method)
@@ -302,7 +281,6 @@ def _macro_aggregate(per_class_df, metric, strength, method, exclude=()):
     if vals.empty:
         return np.nan, 0
     return float(vals.mean()), int(sub["class"].nunique())
-
 
  
 def plot_metric_panel(per_class_df: pd.DataFrame, aggregate_df: pd.DataFrame,
@@ -331,7 +309,6 @@ def plot_metric_panel(per_class_df: pd.DataFrame, aggregate_df: pd.DataFrame,
  
     excl_str = ", ".join(str(c) for c in sorted(exclude))
  
-    # Which aggregate bar groups to draw, in order.
     if overall_mode == "pooled" or not exclude:
         groups = [("pooled", "Overall")]
     elif overall_mode == "both":
@@ -408,8 +385,6 @@ def plot_metric_panel(per_class_df: pd.DataFrame, aggregate_df: pd.DataFrame,
                 ax_o.bar(gx[gi] + offset, val, width=width,
                          color=color, edgecolor="black", linewidth=0.4,
                          hatch=hatch, alpha=alpha)
- 
-
 
         for a in (ax, ax_o):
             if log_scale:
@@ -433,8 +408,7 @@ def plot_metric_panel(per_class_df: pd.DataFrame, aggregate_df: pd.DataFrame,
                              fontsize=6.5)
         ax.set_xticks(x)
         ax.set_xticklabels([str(c) for c in classes] if row_i == n_rows - 1 else [])
- 
-        # Separator between the per-class block and the aggregates
+
         if len(groups) > 1:
             ax_o.axvline(-0.5, color="0.8", linewidth=0.8)
  
@@ -536,7 +510,7 @@ def plot_sample_grid_for_strength(strength_dir: Path, out_path: Path,
     n_rows = len(classes)
     n_meth = len(available_methods)
 
-    gutter = 0.5  # relative width of the gap between method blocks
+    gutter = 0.5 
     width_ratios = []
     for mi in range(n_meth):
         width_ratios += [1.0] * n_samples
@@ -551,13 +525,12 @@ def plot_sample_grid_for_strength(strength_dir: Path, out_path: Path,
         wspace=0.06, hspace=0.06, width_ratios=width_ratios,
     )
 
-    # image-column start index for each method block
     col_index, c = [], 0
     for mi in range(n_meth):
         col_index.append((mi, c))
         c += n_samples
         if mi < n_meth - 1:
-            c += 1  # skip gutter column
+            c += 1 
 
     for row_i, cls in enumerate(classes):
         for (method_i, start_col) in col_index:
@@ -631,7 +604,6 @@ def main():
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # ---- quantitative ----
     per_class_df, aggregate_df = load_results(root)
 
     per_class_df.to_csv(out_dir / "tidy_per_class_results.csv", index=False)
@@ -659,7 +631,6 @@ def main():
         )
     print(f"wrote per-class heatmaps for metric: {args.heatmap_metric}")
 
-    # ---- qualitative ----
     if not args.skip_samples:
         if not _HAS_TORCH:
             print("warning: torch is not installed; skipping sample grids "
@@ -678,5 +649,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# python -m analysis.class_conditional.class_cond_plots --root runs/exp --out-dir figs --panel-style bars

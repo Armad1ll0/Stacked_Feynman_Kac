@@ -1,25 +1,3 @@
-"""
-experiments/compute_lpips.py
-----------------------------
-Post-hoc LPIPS computation over an existing summary.csv.
-
-Reads each row in summary.csv, loads the corresponding cached clean image
-and the per-run recon from the comparison PNG, computes LPIPS, and writes
-a new CSV with an added `lpips` column.
-
-Works for BOTH result matrices:
-  --which tds        -> experiments/configs            (TDS / TDS+HMC)   [default]
-  --which baselines  -> experiments/configs_baselines  (DPS/PC/FPS/MCGdiff)
-
-Idempotent: rows that already have a non-empty `lpips` value are skipped.
-
-Usage:
-    pip install lpips
-    python -m experiments.compute_lpips
-    python -m experiments.compute_lpips --which baselines
-    python -m experiments.compute_lpips --which baselines --device cuda
-"""
-
 import argparse
 import csv
 import importlib
@@ -31,18 +9,11 @@ from PIL import Image
 
 
 def resolve_config(which: str):
-    """Return (CACHE_DIR, RESULTS_DIR, DATASETS) for the chosen matrix."""
-    if which == "tds":
-        mod = importlib.import_module("experiments.configs")
-    elif which == "baselines":
-        mod = importlib.import_module("experiments.configs_baselines")
-    else:
-        raise ValueError(f"--which must be 'tds' or 'baselines', got {which!r}")
+    mod = importlib.import_module("experiments.configs")
     return Path(mod.CACHE_DIR), Path(mod.RESULTS_DIR), mod.DATASETS
 
 
 def pil_to_tensor(img: Image.Image, channels: int) -> torch.Tensor:
-    """PIL -> (1, 3, H, W) in [-1, 1]. LPIPS wants 3 channels even for grayscale."""
     if channels == 1:
         img = img.convert("L")
         arr = np.array(img, dtype=np.float32) / 127.5 - 1.0
@@ -56,14 +27,9 @@ def pil_to_tensor(img: Image.Image, channels: int) -> torch.Tensor:
 
 
 def extract_recon_from_compare(compare_png: Path, orig_size: tuple[int, int]) -> Image.Image:
-    """
-    Our save_comparison writes 3 panels side-by-side: orig | obs | recon,
-    each of size (W, H) separated by 10px gaps. Crop the rightmost panel.
-    """
     strip = Image.open(compare_png)
     W_panel, H_panel = orig_size
     gap = 10
-    # Third panel starts at 2*(W+gap)
     left = 2 * (W_panel + gap)
     recon = strip.crop((left, 0, left + W_panel, H_panel))
     return recon
@@ -71,7 +37,7 @@ def extract_recon_from_compare(compare_png: Path, orig_size: tuple[int, int]) ->
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--which", choices=["tds", "baselines"], default="tds",
+    p.add_argument("--which", choices=["tds"], default="tds",
                     help="Which result matrix to compute LPIPS for. Determines "
                          "which summary.csv is read/written and where cached "
                          "clean images and comparison PNGs are looked up.")
@@ -95,7 +61,6 @@ def main():
     if not csv_path.exists():
         raise SystemExit(f"No summary.csv at {csv_path}")
 
-    # Read existing CSV
     with open(csv_path) as f:
         reader = csv.DictReader(f)
         fieldnames = list(reader.fieldnames or [])
@@ -128,11 +93,9 @@ def main():
             continue
 
         try:
-            # Load clean
-            x_clean = torch.load(clean_pt, weights_only=True)  # (C,H,W) in [-1,1]
+            x_clean = torch.load(clean_pt, weights_only=True) 
             C, H, W = x_clean.shape
 
-            # Extract recon panel from comparison strip
             recon_pil = extract_recon_from_compare(compare_png, orig_size=(W, H))
 
             t_clean = pil_to_tensor(
@@ -146,7 +109,6 @@ def main():
             ).to(device)
             t_recon = pil_to_tensor(recon_pil, channels=C).to(device)
 
-            # LPIPS's backbones need >=64x64; upsample small inputs.
             if t_clean.shape[-1] < 64:
                 t_clean = torch.nn.functional.interpolate(
                     t_clean, size=64, mode="bilinear", align_corners=False)
@@ -164,7 +126,6 @@ def main():
             print(f"  FAILED {dataset}/{task}/{method}/{idx}: {e}")
             n_failed += 1
 
-    # Write back
     with open(csv_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
@@ -176,5 +137,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# python -m analysis.image_restoration.compute_lpips

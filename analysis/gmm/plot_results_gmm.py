@@ -1,29 +1,3 @@
-"""
-replot_gmm.py
--------------
-Reload results saved by run_gmm_comparison.py ({tag}_raw.pt) and rebuild
-the summary table and/or the figure -- optionally with a different
-sigma_y order, a different method order/subset, or a different
---fig_max_points -- WITHOUT rerunning any sampling.
-
-Usage:
-    # exactly reproduce the original figure/table from saved data
-    python replot_gmm.py gmm_results/main_raw.pt
-
-    # re-order sigma_y rows (e.g. descending instead of ascending)
-    python replot_gmm.py gmm_results/main_raw.pt --sigma_ys 3.0 1.0 0.5 0.1
-
-    # only show a subset of methods, in a specific order
-    python replot_gmm.py gmm_results/main_raw.pt --methods tds_hmc tds pc
-
-    # denser scatter points, different output filename
-    python replot_gmm.py gmm_results/main_raw.pt --fig_max_points 8000 \
-        --output figs/gmm_final.png
-
-    # just reprint the markdown table, skip the figure
-    python replot_gmm.py gmm_results/main_raw.pt --table_only
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -46,29 +20,12 @@ def set_publication_style(usetex: bool = True) -> None:
 
 set_publication_style(usetex=True)
 
-# reuse the exact plotting logic from the main driver so the figure is
-# pixel-for-pixel the same as a fresh run would produce
-
 DISPLAY_NAMES = {
     "tds": "TDS",
     "tds_hmc": "rSFK-uHMC",
-    "dps": "DPS",
-    "pc": "PC",
-    "fps": "FPS",
-    "mcgdiff": "MCGDiff",
 }
 
 def _draw_contour(ax, GX, GY, dens, args, alpha_lines=0.6, alpha_fill=0.25):
-    """Draw the posterior density contour on ax, honoring the configurable
-    style/cmap/levels on args. Falls back to the original look (black
-    lines + light grey fill) if these attributes aren't set.
- 
-    Options (all read off `args`):
-      contour_style       "lines" | "filled" | "both"   (default "both")
-      contour_cmap        matplotlib colormap name       (default "Greys")
-      contour_levels      number of contour bands        (default 6)
-      contour_line_color  outline color                  (default "k")
-    """
     style = getattr(args, "contour_style", "both")
     cmap = getattr(args, "contour_cmap", "viridis")
     levels = getattr(args, "contour_levels", 15)
@@ -82,33 +39,13 @@ def _draw_contour(ax, GX, GY, dens, args, alpha_lines=0.6, alpha_fill=0.25):
  
  
 def build_figure(results, posts, sigma_ys, plot_methods, seeds, args, fname):
-    """One ROW per sigma_y, ground-truth column + one COLUMN per method.
- 
-    Font sizes and contour styling are all pulled from `args` via
-    getattr(..., default) -- see the CLI flags in run_gmm_comparison.py
-    and replot_gmm.py for the full list:
- 
-      suptitle_fontsize      figure-level title            (default 13)
-      col_label_fontsize     method name / "Ground truth"  (default 13)
-      row_label_fontsize     sigma_y row label              (default 12)
-      title_fontsize         per-panel SW/modeErr title     (default 9)
-      failed_label_fontsize  "failed" placeholder text      (default 11)
-      fig_max_points         subsample cap per scatter panel
- 
-    To change the overall figure LAYOUT (panel size, spacing, dpi,
-    scatter point size/color/alpha, etc.), edit the constants directly
-    in this function.
-    """
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
  
     if not plot_methods:
         print("\nNo sampler rows to plot; skipping figure.")
         return
  
     nrow = len(sigma_ys)
-    ncol = 1 + len(plot_methods)   # +1 for the ground-truth-only column
+    ncol = 1 + len(plot_methods)  
     lim = args.spacing * (args.grid_side - 1) / 2 * 1.3
     xs = torch.linspace(-lim, lim, 200)
     GX, GY = torch.meshgrid(xs, xs, indexing="ij")
@@ -123,7 +60,6 @@ def build_figure(results, posts, sigma_ys, plot_methods, seeds, args, fname):
         dens = post.log_prob(pts).exp().reshape(200, 200)
         rows = results[sigma_y]
  
-        # ── column 0: ground-truth posterior contour, no samples ──
         ax_gt = axes[i][0]
         _draw_contour(ax_gt, GX, GY, dens, args, alpha_lines=.6, alpha_fill=.25)
         ax_gt.set_xlim(-lim, lim)
@@ -139,8 +75,7 @@ def build_figure(results, posts, sigma_ys, plot_methods, seeds, args, fname):
                            xycoords="axes fraction",
                            ha="center", va="bottom",
                            fontsize=getattr(args, "col_label_fontsize", 20))
- 
-        # ── remaining columns: one per method ──
+
         for j, name in enumerate(plot_methods, start=1):
             ax = axes[i][j]
             _draw_contour(ax, GX, GY, dens, args, alpha_lines=.25, alpha_fill=.12)
@@ -160,10 +95,6 @@ def build_figure(results, posts, sigma_ys, plot_methods, seeds, args, fname):
                 sw_m, sw_s = agg["sw"]
                 me_m, me_s = agg["mode_cov_err"]
                 ax.scatter(S[:, 0], S[:, 1], s=4, alpha=.35, c="tab:blue")
-                #ax.set_title(
-                #    f"SW={sw_m:.3f}$\\pm${sw_s:.3f}\n"
-                #    f"modeErr={me_m:.3f}$\\pm${me_s:.3f}",
-                #    fontsize=getattr(args, "title_fontsize", 9))
  
             ax.set_xlim(-lim, lim)
             ax.set_ylim(-lim, lim)
@@ -172,18 +103,12 @@ def build_figure(results, posts, sigma_ys, plot_methods, seeds, args, fname):
             ax.set_xticklabels([])
             ax.set_yticklabels([])
  
-            # method name across the top
             if i == 0:
                 ax.annotate(DISPLAY_NAMES.get(name, name), xy=(0.5, 1.05), xycoords="axes fraction",
                             ha="center", va="bottom",
                             fontsize=getattr(args, "col_label_fontsize", 20))
                 
     n_modes = args.grid_side ** 2
-    #fig.suptitle(
-    #    f"Posterior sampling, analytic GMM ({n_modes} modes, "
-    #    f"spacing={args.spacing}, y={args.y})\n"
-    #    f"averaged over {len(seeds)} seed(s): {seeds}",
-    #    fontsize=getattr(args, "suptitle_fontsize", 13))
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     fig.savefig(fname, dpi=100)
     print(f"\nWrote {fname}")
@@ -323,5 +248,3 @@ def main():
  
 if __name__ == "__main__":
     main()
-
-# python -m analysis.gmm.plot_results_gmm gmm_results/main_raw.pt

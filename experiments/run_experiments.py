@@ -225,8 +225,7 @@ def main():
                    help="Re-run cells even if already completed. "
                         "Combine with --only_* to redo only specific cells.")
     p.add_argument("--sigma_y",      type=float, default=0.05,
-                   help="Measurement-noise std, applied to ALL methods. Must "
-                        "match the value passed to run_baselines.py.")
+                   help="Measurement-noise std, applied to all methods.")
     p.add_argument("--csv_name",     default="summary_noisy.csv",
                    help="Summary file name inside RESULTS_DIR.")
     args = p.parse_args()

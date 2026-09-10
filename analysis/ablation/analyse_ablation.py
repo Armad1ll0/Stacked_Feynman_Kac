@@ -1,44 +1,3 @@
-"""
-experiments/evaluate_ablations.py
-----------------------------------
-Reads the summary CSVs produced by run_ablations.py and generates:
-  - Per-ablation aggregate stats tables (mean ± std) saved as CSV
-  - PDF plots for each ablation and metric
-
-Ablation A – wallclock:
-  - Markdown table: runtime + standard metrics, mean ± std, one row per method.
-  - Bar charts comparing methods side-by-side per (dataset, task).
-
-Ablation B – stop_at_step:
-  - Line plots for PSNR and SSIM as a grid: rows = tasks, columns = datasets.
-  - Individual PDF plots for all other metrics per (dataset, task).
-  - All stop_at_step plots are styled for TMLR submission.
-
-Output structure:
-  RESULTS_DIR/
-    ablation_wallclock/
-      summary.csv                  ← written by run_ablations.py
-      eval/
-        stats.csv                  ← mean ± std per (dataset, task, method)
-        stats_table.md             ← markdown table of runtime + metrics
-        plots/
-          {dataset}_{task}_{metric}.pdf
-    ablation_stop_at_step/
-      summary.csv
-      eval/
-        stats.csv
-        plots/
-          psnr_grid.pdf            ← grid: rows=tasks, cols=datasets
-          ssim_grid.pdf
-          {dataset}_{task}_{metric}.pdf  ← individual plots for other metrics
-
-Usage:
-    python -m experiments.evaluate_ablations
-    python -m experiments.evaluate_ablations --ablation wallclock
-    python -m experiments.evaluate_ablations --ablation stop_at_step
-    python -m experiments.evaluate_ablations --metrics psnr ssim
-"""
-
 import argparse
 import warnings
 from contextlib import contextmanager
@@ -53,36 +12,27 @@ import numpy as np
 
 from experiments.configs import RESULTS_DIR
 
-# ──────────────────────────────────────────────────────────────────────
-# Config
-# ──────────────────────────────────────────────────────────────────────
 
 METRICS = ["psnr", "ssim", "obs_consistency", "runtime_s", "ess_mean", "ess_min", "diversity", "var_diversity"]
 LOWER_IS_BETTER = {"obs_consistency", "runtime_s"}
 
-# Metrics shown in the wallclock markdown table (runtime first, then quality)
 WALLCLOCK_TABLE_METRICS = ["runtime_s", "psnr", "ssim", "obs_consistency", "ess_mean", "ess_min", "diversity", "var_diversity"]
 
-# Metrics shown as a grid in stop_at_step (rows=tasks, cols=datasets)
 GRID_METRICS = ["psnr", "ssim"]
 
-# Generic palette for wallclock bar charts
 PALETTE = [
     "#4C72B0", "#DD8452", "#55A868", "#C44E52",
     "#8172B2", "#937860", "#DA8BC3", "#8C8C8C",
 ]
 
-# ── Publication style (TMLR) ──────────────────────────────────────────
-# Colorblind-safe blue from Wong (2011) palette
+
 TMLR_COLOUR = "#0072B2"
 
-# TMLR text width is 6.75in; single-column figure ~3.25in, full-width ~6.75in
-TMLR_SINGLE_W = 3.25   # inches – single-panel individual plots
-TMLR_GRID_COL = 2.5    # inches – per-column width in the grid
-TMLR_GRID_ROW = 2.0    # inches – per-row height in the grid
+TMLR_SINGLE_W = 3.25   
+TMLR_GRID_COL = 2.5    
+TMLR_GRID_ROW = 2.0    
 
 TMLR_RC = {
-    # Font — matches TMLR's Times-based body text
     "font.family":        "serif",
     "font.serif":         ["Times New Roman", "DejaVu Serif"],
     "mathtext.fontset":   "stix",
@@ -109,7 +59,7 @@ TMLR_RC = {
     "ytick.major.width":  0.8,
     "xtick.direction":    "out",
     "ytick.direction":    "out",
-    # Output — embed fonts so PDF is accepted by submission systems
+    # Output
     "figure.dpi":         300,
     "savefig.dpi":        300,
     "savefig.bbox":       "tight",
@@ -118,19 +68,14 @@ TMLR_RC = {
     "ps.fonttype":        42,
 }
 
-FIGURE_SIZE = (5, 4)   # single-panel (non-TMLR wallclock plots)
+FIGURE_SIZE = (5, 4)  
 
 
 @contextmanager
 def tmlr_style():
-    """Context manager: apply TMLR RC params, restore afterwards."""
     with plt.rc_context(TMLR_RC):
         yield
 
-
-# ──────────────────────────────────────────────────────────────────────
-# Label helpers
-# ──────────────────────────────────────────────────────────────────────
 
 def _metric_label(metric: str) -> str:
     labels = {
@@ -165,7 +110,6 @@ def _dataset_label(dataset: str) -> str:
 
 
 def _metric_header(metric: str) -> str:
-    """Short column header for markdown table."""
     labels = {
         "psnr":            "PSNR (dB) ↑",
         "ssim":            "SSIM ↑",
@@ -179,9 +123,6 @@ def _metric_header(metric: str) -> str:
     return labels.get(metric, metric)
 
 
-# ──────────────────────────────────────────────────────────────────────
-# Shared helpers
-# ──────────────────────────────────────────────────────────────────────
 
 def _load_csv(path: Path) -> pd.DataFrame:
     if not path.exists():
@@ -205,19 +146,13 @@ def _save_pdf(fig, path: Path):
 
 
 def _set_tight_ylim(ax, means, stds, pad_frac=0.12):
-    """Set y-axis limits with a little breathing room around the data."""
     y_min = (means - stds).min()
     y_max = (means + stds).max()
     pad   = (y_max - y_min) * pad_frac or 0.01
     ax.set_ylim(y_min - pad, y_max + pad)
 
 
-# ──────────────────────────────────────────────────────────────────────
-# Stats table
-# ──────────────────────────────────────────────────────────────────────
-
 def compute_stats(df: pd.DataFrame, group_cols: list[str], metrics: list[str]) -> pd.DataFrame:
-    """Return mean ± std for each metric, grouped by group_cols."""
     agg = {}
     for m in metrics:
         if m not in df.columns:
@@ -226,10 +161,6 @@ def compute_stats(df: pd.DataFrame, group_cols: list[str], metrics: list[str]) -
         agg[f"{m}_std"]  = (m, "std")
     return df.groupby(group_cols).agg(**agg).reset_index()
 
-
-# ──────────────────────────────────────────────────────────────────────
-# Ablation A – markdown table
-# ──────────────────────────────────────────────────────────────────────
 
 def make_wallclock_markdown(df: pd.DataFrame, eval_dir: Path, metrics: list[str]):
     table_metrics = [m for m in WALLCLOCK_TABLE_METRICS if m in metrics and m in df.columns]
@@ -270,10 +201,6 @@ def make_wallclock_markdown(df: pd.DataFrame, eval_dir: Path, metrics: list[str]
     md_path.write_text("\n".join(lines))
     print(f"  Saved: {md_path}")
 
-
-# ──────────────────────────────────────────────────────────────────────
-# Ablation A – wallclock bar plots  (unchanged style)
-# ──────────────────────────────────────────────────────────────────────
 
 def plot_wallclock(df: pd.DataFrame, plot_dir: Path, metrics: list[str]):
     datasets = df["dataset"].unique()
@@ -329,17 +256,8 @@ def plot_wallclock(df: pd.DataFrame, plot_dir: Path, metrics: list[str]):
                 _save_pdf(fig, plot_dir / f"{dataset}_{task}_{metric}.pdf")
 
 
-# ──────────────────────────────────────────────────────────────────────
-# Ablation B – stop_at_step grid plots  (TMLR style)
-# ──────────────────────────────────────────────────────────────────────
-
 def plot_stop_at_step_grid(df: pd.DataFrame, plot_dir: Path, metric: str):
-    """
-    Grid: rows = tasks, columns = datasets.
-    Each panel is a line plot of `metric` vs stop_at_step with ±1 std band.
-    Styled for TMLR submission.
-    """
-    # Custom dataset order: MNIST first, then the rest alphabetically
+
     DATASET_ORDER = ["mnist", "flowers", "butterflies", "celeba"]
     all_datasets  = set(df["dataset"].unique())
     datasets = [d for d in DATASET_ORDER if d in all_datasets] + \
@@ -380,7 +298,6 @@ def plot_stop_at_step_grid(df: pd.DataFrame, plot_dir: Path, metric: str):
                     alpha=0.15, color=TMLR_COLOUR,
                 )
 
-                # Show at most 5 ticks, always rotated to avoid bunching
                 ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=5, integer=True))
                 ax.set_xticks([xs[i] for i in np.linspace(0, len(xs)-1, min(5, len(xs)), dtype=int)])
                 ax.set_xticklabels(ax.get_xticks().astype(int), rotation=45, ha="right")
@@ -389,15 +306,12 @@ def plot_stop_at_step_grid(df: pd.DataFrame, plot_dir: Path, metric: str):
                 ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=4, prune="both"))
                 ax.yaxis.set_major_formatter(ticker.FormatStrFormatter("%.2f"))
 
-                # Column header — top row only
                 if r == 0:
                     ax.set_title(_dataset_label(dataset), fontweight="bold")
-                # Row label — leftmost column only
                 if c == 0:
                     ax.set_ylabel(f"{_task_label(task)}\n{_metric_label(metric)}")
                 else:
                     ax.set_ylabel("")
-                # x-axis label — bottom row only
                 if r == n_rows - 1:
                     ax.set_xlabel(r"$t_{\mathrm{stop}}$")
                 else:
@@ -407,15 +321,7 @@ def plot_stop_at_step_grid(df: pd.DataFrame, plot_dir: Path, metric: str):
         _save_pdf(fig, plot_dir / f"{metric}_grid.pdf")
 
 
-# ──────────────────────────────────────────────────────────────────────
-# Ablation B – individual plots  (TMLR style)
-# ──────────────────────────────────────────────────────────────────────
-
 def plot_stop_at_step_individual(df: pd.DataFrame, plot_dir: Path, metrics: list[str]):
-    """
-    One PDF per (dataset, task, metric) for non-grid metrics.
-    Styled for TMLR submission.
-    """
     datasets = df["dataset"].unique()
     tasks    = df["task"].unique()
 
@@ -471,10 +377,6 @@ def plot_stop_at_step_individual(df: pd.DataFrame, plot_dir: Path, metrics: list
                     _save_pdf(fig, plot_dir / f"{dataset}_{task}_{metric}.pdf")
 
 
-# ──────────────────────────────────────────────────────────────────────
-# Per-ablation runner
-# ──────────────────────────────────────────────────────────────────────
-
 def evaluate_ablation(ablation: str, metrics: list[str]):
     root     = Path(RESULTS_DIR) / f"ablation_{ablation}"
     csv_path = root / "summary.csv"
@@ -521,10 +423,6 @@ def evaluate_ablation(ablation: str, metrics: list[str]):
             plot_stop_at_step_individual(df, plot_dir, individual_metrics)
 
 
-# ──────────────────────────────────────────────────────────────────────
-# Entry point
-# ──────────────────────────────────────────────────────────────────────
-
 def main():
     p = argparse.ArgumentParser()
     p.add_argument(
@@ -550,6 +448,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-# python -m analysis.ablation.analyse_ablation

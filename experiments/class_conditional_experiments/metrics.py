@@ -11,9 +11,7 @@ from torchvision import datasets, transforms
 from experiments.class_conditional_experiments.train_classifiers import load_classifier, MNIST_TRANSFORM
 
 
-# ======================================================================
-# Data loading
-# ======================================================================
+
 def load_generated(samples_dir):
     out = {}
     for path in sorted(glob.glob(os.path.join(samples_dir, "class_*.pt"))):

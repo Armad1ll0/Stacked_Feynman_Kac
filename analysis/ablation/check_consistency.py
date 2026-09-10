@@ -21,11 +21,10 @@ def _f(row, field):
         x = float(v)
     except (ValueError, TypeError):
         return None
-    return x if x == x else None  # drop NaN
+    return x if x == x else None 
 
 
 def collect(rows):
-    """Per (dataset, task, method): list of (cons, resid) pairs, one per sample."""
     out = defaultdict(list)
     skipped = 0
     for r in rows:
@@ -49,7 +48,6 @@ def summarize(pairs, sigma):
         "mean_cons": mean_cons,
         "mean_resid": mean_resid,
         "ratio": mean_resid / sigma if sigma else float("nan"),
-        # worst individual violation, for spotting a single bad image
         "worst_margin": min(d - c for c, d in pairs),
     }
 
@@ -105,5 +103,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# python -m analysis.ablation.check_consistency --csv experiments/results/summary_noisy.csv --sigma 0.05 --method tds_hmc_refined --markdown

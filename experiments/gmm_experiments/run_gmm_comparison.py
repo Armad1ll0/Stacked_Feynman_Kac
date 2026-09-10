@@ -119,24 +119,16 @@ def main():
     ap.add_argument("--reps", type=int, default=1,
                     help="independent runs pooled WITHIN one seed "
                          "(samples per seed = reps * P)")
-    # TDS+HMC / PC knobs
+    # TDS+HMC 
     ap.add_argument("--stop_at_step", type=int, default=5)
     ap.add_argument("--hmc_iters", type=int, default=20)
     ap.add_argument("--L", type=int, default=5)
     ap.add_argument("--lambda_like", type=float, default=10.0)
-    # DPS / PC knobs
-    ap.add_argument("--dps_step_size", type=float, default=0.01)
-    ap.add_argument("--pc_nfe_factor", type=float, default=1.0,
-                    help="PC corrector budget = factor * hmc_iters * L. "
-                         "1.0 matches Langevin updates to leapfrog STEPS; "
-                         "2.0 matches MODEL CALLS of the uncached leapfrog. "
-                         "Use the same convention as the image experiments.")
+
     # method selection
     ap.add_argument("--methods", nargs="*", default=None,
                     help=f"subset to run (default: {' '.join(DEFAULT_METHODS)})")
-    ap.add_argument("--include_guidance", action="store_true",
-                    help="(deprecated, no effect: DPS/PC are now included by "
-                         "default; use --methods to run a subset)")
+
     # output
     ap.add_argument("--tag", default="", help="suffix for the figure filename")
     ap.add_argument("--no_fig", action="store_true")
