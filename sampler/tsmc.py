@@ -219,7 +219,7 @@ def run_tds(
         if mask.dim() == 3:
             mask = mask.unsqueeze(0)
         x = observation * mask + x * (1.0 - mask)
-    print(x.abs().mean())
+    # print(x.abs().mean())
 
     return SamplerResult(
         particles=x,
