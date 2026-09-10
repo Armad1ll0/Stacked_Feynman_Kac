@@ -1,0 +1,50 @@
+# ── Experiment outputs & cache ──────────────────────────────────────
+experiments/cache/
+experiments/results/
+
+# ── Datasets downloaded by test scripts ─────────────────────────────
+data/
+*.pt
+*.safetensors
+
+# ── Python ──────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ── Virtual environments ────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+# ── IDEs & editors ──────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ── Jupyter ─────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ── Logs & misc ─────────────────────────────────────────────────────
+*.log
+*.out
+wandb/
+tb_logs/
+lightning_logs/
+
+# ── HuggingFace cache (if stored locally) ───────────────────────────
+.cache/

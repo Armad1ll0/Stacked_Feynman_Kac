@@ -1,0 +1,12 @@
+accelerate
+datasets
+diffusers
+lpips
+matplotlib
+numpy
+pandas
+scipy
+torch
+torchmetrics
+torchvision
+tqdm
